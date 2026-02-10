@@ -153,3 +153,20 @@ export const CompareNodesSchema = z
   .strict();
 
 export const IntrospectAmbossSchema = z.object({}).strict();
+
+export const SearchByAliasSchema = z
+  .object({
+    query: z
+      .string()
+      .min(1)
+      .max(100)
+      .describe("Node alias or name to search for (e.g. 'ACINQ', 'Kraken', 'Bitfinex')"),
+    limit: z
+      .number()
+      .int()
+      .min(1)
+      .max(50)
+      .default(10)
+      .describe("Max results to return"),
+  })
+  .strict();

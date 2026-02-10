@@ -341,6 +341,21 @@ export async function getHighestRatedNodes(
   return parseNodeCards(html).slice(0, limit);
 }
 
+// ── Search by alias ─────────────────────────────────────────────────
+
+export async function searchByAlias(
+  query: string,
+  limit: number = 10
+): Promise<ScrapedNode[]> {
+  const params = new URLSearchParams();
+  params.set("search", query);
+  params.set("commit", "Search");
+
+  const url = `${LNPLUS_BASE_URL}/nodes?${params.toString()}`;
+  const html = await httpGet(url);
+  return parseNodeCards(html).slice(0, limit);
+}
+
 // ── Shared cheerio card parser ──────────────────────────────────────
 
 function parseNodeCards(html: string): ScrapedNode[] {

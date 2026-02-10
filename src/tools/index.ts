@@ -12,6 +12,7 @@ import {
   FindPathSchema,
   CompareNodesSchema,
   IntrospectAmbossSchema,
+  SearchByAliasSchema,
 } from "../schemas/index.js";
 
 function textContent(text: string) {
@@ -390,6 +391,97 @@ Returns: Raw introspection result showing all available query types and their ar
     async () => {
       const schema = await amboss.introspectSchema(ambossApiKey);
       return textContent(schema);
+    }
+  );
+
+  server.registerTool(
+    "ln_search_by_alias",
+    {
+      title: "Search Nodes by Alias",
+      description: `Search for Lightning Network nodes by alias/name instead of pubkey.
+Queries Amboss and LN+ to find matching nodes and merges results.
+
+Args:
+  - query: Node alias or name to search for (e.g. "ACINQ", "Kraken", "Bitfinex")
+  - limit: Max results (1-50, default 10)
+
+Returns: List of matching nodes with pubkey, alias, capacity, channels, and LN+ rank if available.`,
+      inputSchema: SearchByAliasSchema,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+    },
+    async ({ query, limit }) => {
+      const [ambossResult, lnplusResult] = await Promise.allSettled([
+        amboss.searchByAlias(query, limit, ambossApiKey),
+        lnplus.searchByAlias(query, limit),
+      ]);
+
+      const ambossNodes = ambossResult.status === "fulfilled" ? ambossResult.value : [];
+      const lnplusNodes = lnplusResult.status === "fulfilled" ? lnplusResult.value : [];
+
+      const merged = new Map<string, {
+        pubkey: string;
+        alias: string;
+        capacity_sat: number;
+        channel_count: number;
+        lnplus_rank?: number;
+        lnplus_rank_name?: string;
+        connection_type?: string;
+        source: string[];
+      }>();
+
+      for (const n of ambossNodes) {
+        merged.set(n.pubkey, {
+          pubkey: n.pubkey,
+          alias: n.alias,
+          capacity_sat: n.capacity_sat,
+          channel_count: n.channel_count,
+          source: ["amboss"],
+        });
+      }
+
+      for (const n of lnplusNodes) {
+        const existing = merged.get(n.pubkey);
+        if (existing) {
+          existing.lnplus_rank = n.rank;
+          existing.lnplus_rank_name = n.rank_name;
+          existing.connection_type = n.connection_type;
+          existing.source.push("lnplus");
+        } else {
+          merged.set(n.pubkey, {
+            pubkey: n.pubkey,
+            alias: n.alias,
+            capacity_sat: Math.round(n.capacity_btc * 1e8),
+            channel_count: n.channel_count,
+            lnplus_rank: n.rank,
+            lnplus_rank_name: n.rank_name,
+            connection_type: n.connection_type,
+            source: ["lnplus"],
+          });
+        }
+      }
+
+      const nodes = [...merged.values()].slice(0, limit);
+
+      if (!nodes.length) {
+        return textContent(`No nodes found matching "${query}".`);
+      }
+
+      const errors = [
+        ambossResult.status === "rejected" ? `amboss: ${(ambossResult.reason as Error).message}` : null,
+        lnplusResult.status === "rejected" ? `lnplus: ${(lnplusResult.reason as Error).message}` : null,
+      ].filter(Boolean);
+
+      return jsonContent({
+        query,
+        count: nodes.length,
+        nodes,
+        ...(errors.length ? { errors } : {}),
+      });
     }
   );
 }

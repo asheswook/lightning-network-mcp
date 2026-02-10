@@ -211,6 +211,58 @@ export async function findPath(
   return null;
 }
 
+// ── Search by alias ──────────────────────────────────────────────────
+
+const SEARCH_QUERY = `
+query Search($query: String!) {
+  search(query: $query) {
+    node_results {
+      num_results
+      results {
+        alias
+        pubkey
+        capacity
+        channel_amount
+      }
+    }
+  }
+}`;
+
+export interface AmbossSearchResult {
+  pubkey: string;
+  alias: string;
+  capacity_sat: number;
+  channel_count: number;
+}
+
+export async function searchByAlias(
+  query: string,
+  limit: number = 10,
+  apiKey?: string
+): Promise<AmbossSearchResult[]> {
+  const data = await graphqlQuery<{
+    search: {
+      node_results: {
+        num_results: number;
+        results: Array<{
+          alias: string;
+          pubkey: string;
+          capacity: string;
+          channel_amount: string;
+        }>;
+      };
+    };
+  }>(AMBOSS_GRAPHQL_URL, SEARCH_QUERY, { query }, getAuthHeaders(apiKey));
+
+  const results = data.search?.node_results?.results ?? [];
+  return results.slice(0, limit).map((r) => ({
+    pubkey: r.pubkey,
+    alias: r.alias,
+    capacity_sat: parseInt(r.capacity ?? "0", 10),
+    channel_count: parseInt(r.channel_amount ?? "0", 10),
+  }));
+}
+
 // ── Introspection ───────────────────────────────────────────────────
 
 export async function introspectSchema(apiKey?: string): Promise<string> {

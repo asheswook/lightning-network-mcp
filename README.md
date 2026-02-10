@@ -21,6 +21,7 @@ MCP server for Lightning Network node and channel exploration. Aggregates data f
 | `ln_find_swaps` | Search LN+ liquidity swaps by shape, size, status |
 | `ln_find_path` | Pathfinding placeholder (not yet available via public API) |
 | `ln_compare_nodes` | Side-by-side comparison of multiple nodes |
+| `ln_search_by_alias` | Search nodes by alias/name across Amboss and LN+ |
 | `ln_introspect_amboss` | Explore the Amboss GraphQL schema |
 
 ## Setup
@@ -82,7 +83,8 @@ Ranks are calculated using a PageRank-style algorithm based on the capacity of c
 
 - "Show me the top 20 nodes by capacity"
 - "Find Platinum+ nodes with 100+ channels on clearnet"
-- "Look up ACINQ node details" (requires pubkey)
+- "Search for ACINQ nodes" (alias search — no pubkey needed)
+- "Look up ACINQ node details" (requires pubkey for full detail)
 - "Any open triangle swaps above 10M sats?"
 - "Compare these two nodes: {pubkey1} vs {pubkey2}"
 
